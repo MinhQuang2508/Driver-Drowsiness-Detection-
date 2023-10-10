@@ -1,0 +1,24 @@
+import streamlit as st
+import cv2
+import numpy as np
+st.title('Hệ thống cảnh báo buồn ngủ khi lái xe')
+cap = cv2.VideoCapture(0)
+with st.sidebar:
+    st.header("Cài đặt")
+    sound_alert = st.checkbox("Âm thanh báo động", value=True)
+    volume = st.slider("Âm lượng báo động", min_value=0, max_value=100, value=50)
+    alarm_type = st.selectbox("Loại còi báo động", ["Loại 1", "Loại 2", "Loại 3"])
+if st.button('Kho lưu trữ'):
+    st.write("Bạn đã mở Kho lưu trữ. Tại đây, bạn có thể lưu trữ các thông tin quan trọng.")
+def show_camera():
+    ret, frame = cap.read()
+    if not ret:
+        st.warning("Không thể đọc hình ảnh từ camera")
+    else:
+        st.image(frame, channels='BGR', use_column_width=True)
+show_camera()
+if st.button('Dừng camera'):
+    cap.release()
+if st.button('Bắt đầu camera'):
+    cap = cv2.VideoCapture(0)
+st.sidebar.write("Ứng dụng được thực hiện bởi: [Tên của bạn]")
