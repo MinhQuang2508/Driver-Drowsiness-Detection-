@@ -1,7 +1,7 @@
 import cv2
 
-# Load the Haar Cascade Classifier for face and eye detection
-face_cascade = cv2.CascadeClassifier('D:/cpv301/haarcascade_frontalface_default.xml')
+# Load the Haar Cascade Classifier for eye detection
+
 eye_cascade = cv2.CascadeClassifier('D:/cpv301/haarcascade_eye.xml')
 
 def detect_eyes(frame):
