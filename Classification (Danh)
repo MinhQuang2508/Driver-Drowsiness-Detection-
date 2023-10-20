@@ -2,20 +2,12 @@ import cv2
 import numpy as np
 from sklearn import svm
 import os
-
-# Khai báo bộ phân loại SVM
 clf = svm.SVC(C=1.0, kernel='linear')
-
-# Đường dẫn đến thư mục chứa hình ảnh mắt mở
 eye_open_dir = 'E:\Data_Open'
-
-# Đường dẫn đến thư mục chứa hình ảnh mắt nhắm
 eye_closed_dir = 'E:\Data_Closed'
-
-# Tải bộ phân loại cho phát hiện mắt
 eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
-
-# Thu thập dữ liệu từ hình ảnh mắt mở
+def flip_horizontal(image):
+    return cv2.flip(image, 1)
 X_eye_open, y_eye_open = [], []
 for filename in os.listdir(eye_open_dir):
     img = cv2.imread(os.path.join(eye_open_dir, filename), cv2.IMREAD_GRAYSCALE)
@@ -23,8 +15,6 @@ for filename in os.listdir(eye_open_dir):
     feature = np.sum(img > 100) / (img.size)
     X_eye_open.append(feature)
     y_eye_open.append(1)  # Nhãn 1 cho mắt mở
-
-# Thu thập dữ liệu từ hình ảnh mắt nhắm
 X_eye_closed, y_eye_closed = [], []
 for filename in os.listdir(eye_closed_dir):
     img = cv2.imread(os.path.join(eye_closed_dir, filename), cv2.IMREAD_GRAYSCALE)
@@ -32,49 +22,32 @@ for filename in os.listdir(eye_closed_dir):
     feature = np.sum(img > 100) / (img.size)
     X_eye_closed.append(feature)
     y_eye_closed.append(0)  # Nhãn 0 cho mắt nhắm
-
-# Kết hợp dữ liệu từ cả hai loại mắt
 X = np.array(X_eye_open + X_eye_closed).reshape(-1, 1)
 y = np.array(y_eye_open + y_eye_closed)
-
-# Huấn luyện mô hình SVM
 clf.fit(X, y)
-
-# Khởi tạo webcam
 cap = cv2.VideoCapture(0)
-
+eye_status = "Unknown" 
 while True:
-    # Đọc khung hình từ webcam
     ret, frame = cap.read()
-    
-    # Chuyển đổi ảnh sang ảnh xám
+    frame = flip_horizontal(frame)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    
-    # Sử dụng bộ phân loại mắt để tìm vị trí của mắt
     eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-    
+    if len(eyes) == 0:
+        eye_status = "Eye closed"
+    else:
+        eye_status = "Eye open"
     for (x, y, w, h) in eyes:
-        # Sử dụng mô hình SVM để dự đoán trạng thái mắt
         feature = np.sum(gray[y:y+h, x:x+w] > 100) / (w * h)
         prediction = clf.predict(np.array([feature]).reshape(-1, 1))
-
         if prediction == 1:
             status = "eye open"
         else:
             status = "eye closed"
-
-        # Vẽ bounding box xung quanh mắt và hiển thị trạng thái mắt
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         cv2.putText(frame, f"Eye status: {status}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-    
-    # Hiển thị khung hình
+    cv2.putText(frame, f"Eye Status: {eye_status}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
     cv2.imshow('Eye State Detection', frame)
-    
-    # Bấm 'q' để thoát
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
-
-# Giải phóng tài nguyên và đóng cửa sổ
 cap.release()
 cv2.destroyAllWindows()
-
