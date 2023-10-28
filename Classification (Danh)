@@ -2,14 +2,17 @@ import cv2
 import numpy as np
 from sklearn import svm
 import os
+import time
+import sys
+sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
 
-clf = svm.SVC(C=1.0, kernel='linear')
 eye_open_dir = 'E:\Data_Open'
 eye_closed_dir = 'E:\Data_Closed'
-eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+
+clf = svm.SVC(C=1.0, kernel='linear')
 
 def flip_horizontal(image):
-    return cv2.flip(image, 1)
+    return cv2.flip (image,  1)
 
 X_eye_open, y_eye_open = [], []
 for filename in os.listdir(eye_open_dir):
@@ -35,8 +38,13 @@ clf.fit(X, y)
 cap = cv2.VideoCapture(0)
 
 eye_status = "Unknown"
-close_time = 0  # Thời gian mắt nhắm
-warning_threshold = 3  # Ngưỡng cảnh báo sau 3 giây mắt nhắm liên tục
+close_time = 0
+eye_open_count = 0
+eye_closed_count = 0
+last_warning_time = 0
+last_notification_time = 0
+
+eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
 
 while True:
     ret, frame = cap.read()
@@ -45,20 +53,32 @@ while True:
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    upper_half_gray = gray[:int(frame.shape[0] / 2), :]
+
+    eyes = eye_cascade.detectMultiScale(upper_half_gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40))
 
     if len(eyes) == 0:
         close_time += 1
-        if close_time >= warning_threshold * 30:  # 30 FPS
+        eye_closed_count += 1
+        if eye_closed_count > eye_open_count:
             eye_status = "WARNING!!"
         else:
-            eye_status = "Eye closed"
+            eye_status = "Normal"
     else:
         close_time = 0
+        eye_open_count += 1
         eye_status = "Normal"
 
+    current_time = time.time()
+    if current_time - last_notification_time >= 3:
+        print(f"{current_time} - Mắt mở: {eye_open_count}, Mắt nhắm: {eye_closed_count}, Status: {eye_status}")
+        last_notification_time = current_time
+        eye_open_count = 0
+        eye_closed_count = 0
+
     for (x, y, w, h) in eyes:
-        feature = np.sum(gray[y:y+h, x:x+w] > 100) / (w * h)
+        eye_region = upper_half_gray[y:y+h, x:x+w]
+        feature = np.sum(eye_region > 100) / (w * h)
         prediction = clf.predict(np.array([feature]).reshape(-1, 1))
 
         if prediction == 1:
@@ -72,7 +92,7 @@ while True:
     cv2.putText(frame, f"Eye Status: {eye_status}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
     cv2.imshow('Eye State Detection', frame)
 
-    if cv2.waitKey(95) & 0xFF == ord('q'):  # Tăng thời gian chờ 100ms (0.1 giây) giữa các khung hình
+    if cv2.waitKey(95) & 0xFF == ord('q'):
         break
 
 cap.release()
